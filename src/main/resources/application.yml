@@ -1,0 +1,62 @@
+server:
+  port: 8080
+spring:
+  application:
+    name: spring-cloud-gateway-demo
+  cloud:
+    gateway:
+      discovery:
+        locator:
+          enabled: true #启用路由访问
+      routes:
+        - id: path_route
+          # 指定域名
+          uri: http://localhost:8081
+          predicates:
+            - Path=/jar/**
+          filters:
+            # 熔断配置
+            - name: Hystrix
+              args:
+                name: default
+                fallbackUri: forward:/fallback
+        - id: path_route2
+          # 指定域名
+          uri: http://localhost:8082
+          predicates:
+            - Path=/war/**
+          filters:
+            # 熔断配置
+            - name: Hystrix
+              args:
+                name: hystrix1
+                fallbackUri: forward:/fallback
+  redis:
+    database: 0
+    host: localhost
+    port: 6379
+    password: 123456
+    lettuce:
+      pool:
+        max-active: 300
+        max-idle: 8
+        max-wait: -1ms
+        min-idle: 0
+  session:
+    store-type: redis
+  mvc:
+    throw-exception-if-no-handler-found: true
+
+# 默认熔断超时时间30s
+hystrix:
+  command:
+    default:
+      execution:
+        isolation:
+          thread:
+            timeoutInMilliseconds: 3000
+    hystrix1:
+      execution:
+        isolation:
+          thread:
+            timeoutInMilliseconds: 1000
