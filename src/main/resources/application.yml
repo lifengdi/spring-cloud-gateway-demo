@@ -7,26 +7,26 @@ spring:
     gateway:
       discovery:
         locator:
-          enabled: true #启用路由访问
+          enabled: true #鍚敤璺敱璁块棶
       routes:
         - id: path_route
-          # 指定域名
+          # 鎸囧畾鍩熷悕
           uri: http://localhost:8081
           predicates:
             - Path=/jar/**
           filters:
-            # 熔断配置
+            # 鐔旀柇閰嶇疆
             - name: Hystrix
               args:
                 name: default
                 fallbackUri: forward:/fallback
         - id: path_route2
-          # 指定域名
+          # 鎸囧畾鍩熷悕
           uri: http://localhost:8082
           predicates:
             - Path=/war/**
           filters:
-            # 熔断配置
+            # 鐔旀柇閰嶇疆
             - name: Hystrix
               args:
                 name: hystrix1
@@ -47,7 +47,7 @@ spring:
   mvc:
     throw-exception-if-no-handler-found: true
 
-# 默认熔断超时时间30s
+# 榛樿鐔旀柇瓒呮椂鏃堕棿30s
 hystrix:
   command:
     default:
