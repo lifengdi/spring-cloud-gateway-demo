@@ -141,8 +141,18 @@ public class ResponseLogFilter implements GlobalFilter, Ordered {
                         byte[] content = new byte[join.readableByteCount()];
                         join.read(content);
                         DataBufferUtils.release(join);
-                        Charset charset = LogHelper.getMediaTypeCharset(originalResponse.getHeaders().getContentType());
-                        String responseBody = new String(content, charset);
+
+                        String responseBody;
+                        HttpHeaders responseHeaders = originalResponse.getHeaders();
+                        MediaType contentType = responseHeaders.getContentType();
+
+                        // 下载文件时 不需要打印具体响应内容 标识即可
+                        if (Objects.nonNull(contentType) && LogHelper.isUploadFile(contentType)) {
+                            responseBody = "下载文件";
+                        } else {
+                            Charset charset = LogHelper.getMediaTypeCharset(contentType);
+                            responseBody = new String(content, charset);
+                        }
 
                         long handleTime = LogHelper.getHandleTime(headers);
                         Log logDTO = new Log(Log.TYPE.RESPONSE);
