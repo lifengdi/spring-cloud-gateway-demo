@@ -4,6 +4,7 @@ import com.lifengdi.gateway.constant.HeaderConstant;
 import com.lifengdi.gateway.constant.OrderedConstant;
 import com.lifengdi.gateway.log.Log;
 import com.lifengdi.gateway.log.LogHelper;
+import com.lifengdi.gateway.transform.MessageTransformFactory;
 import com.lifengdi.gateway.utils.IpUtils;
 import io.netty.buffer.UnpooledByteBufAllocator;
 import lombok.extern.slf4j.Slf4j;
@@ -30,6 +31,7 @@ import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import javax.annotation.Resource;
 import java.net.URI;
 import java.nio.charset.Charset;
 import java.util.Objects;
@@ -41,6 +43,9 @@ import java.util.concurrent.atomic.AtomicReference;
 @Component
 @Slf4j
 public class ResponseLogFilter implements GlobalFilter, Ordered {
+
+    @Resource
+    private MessageTransformFactory messageTransformFactory;
 
     @Override
     public int getOrder() {
@@ -124,11 +129,7 @@ public class ResponseLogFilter implements GlobalFilter, Ordered {
         HttpStatus httpStatus = originalResponse.getStatusCode();
         ServerHttpRequest request = exchange.getRequest();
         URI requestUri = request.getURI();
-        String uriQuery = requestUri.getQuery();
-        String url = requestUri.getPath() + (StringUtils.isNotBlank(uriQuery) ? "?" + uriQuery : "");
-        HttpHeaders headers = request.getHeaders();
-        String method = request.getMethodValue().toUpperCase();
-        String requestId = headers.getFirst(HeaderConstant.REQUEST_ID);
+        String path = requestUri.getPath();
 
         // 封装返回体
         return new ServerHttpResponseDecorator(originalResponse) {
@@ -143,8 +144,7 @@ public class ResponseLogFilter implements GlobalFilter, Ordered {
                         DataBufferUtils.release(join);
 
                         String responseBody;
-                        HttpHeaders responseHeaders = originalResponse.getHeaders();
-                        MediaType contentType = responseHeaders.getContentType();
+                        MediaType contentType = originalResponse.getHeaders().getContentType();
 
                         // 下载文件时 不需要打印具体响应内容 标识即可
                         if (Objects.nonNull(contentType) && LogHelper.isUploadFile(contentType)) {
@@ -152,28 +152,18 @@ public class ResponseLogFilter implements GlobalFilter, Ordered {
                         } else {
                             Charset charset = LogHelper.getMediaTypeCharset(contentType);
                             responseBody = new String(content, charset);
+                            // 打印日志
+                            AtomicReference<String> newResponseBody = new AtomicReference<>(responseBody);
+                            // 报文结构转换
+                            content = messageTransformFactory.compareAndTransform(path, responseBody, content, charset, newResponseBody);
+                            responseBody = newResponseBody.get();
                         }
 
-                        long handleTime = LogHelper.getHandleTime(headers);
-                        Log logDTO = new Log(Log.TYPE.RESPONSE);
-                        logDTO.setLevel(Log.LEVEL.INFO);
-                        logDTO.setRequestUrl(url);
-                        logDTO.setRequestBody(requestBody.get());
-                        logDTO.setResponseBody(responseBody);
-                        logDTO.setRequestMethod(method);
-                        if (Objects.nonNull(httpStatus)) {
-                            logDTO.setStatus(httpStatus.value());
-                        }
-                        logDTO.setHandleTime(handleTime);
-                        logDTO.setRequestId(requestId);
-                        logDTO.setIp(IpUtils.getClientIp(request));
+                        Log logDTO = buildLog(responseBody, requestBody.get(), httpStatus, request);
                         exchange.getSession().subscribe(webSession -> {
                             logDTO.setSessionId(webSession.getId());
                         });
 
-                        log.info("url:{},method:{},请求内容:{},响应内容:{},status:{},handleTime:{},requestId:{}",
-                                url, method, requestBody.get(), responseBody, httpStatus,
-                                handleTime, requestId);
                         log.info(LogHelper.toJsonString(logDTO));
                         return bufferFactory.wrap(content);
                     }));
@@ -181,6 +171,32 @@ public class ResponseLogFilter implements GlobalFilter, Ordered {
                 return super.writeWith(body);
             }
         };
+    }
+
+    private Log buildLog(String responseBody, String requestBody,
+                         HttpStatus httpStatus, ServerHttpRequest request) {
+        HttpHeaders headers = request.getHeaders();
+        String requestId = headers.getFirst(HeaderConstant.REQUEST_ID);
+        String method = request.getMethodValue().toUpperCase();
+        URI requestUri = request.getURI();
+        String uriQuery = requestUri.getQuery();
+        String path = requestUri.getPath();
+        String url = path + (StringUtils.isNotBlank(uriQuery) ? "?" + uriQuery : "");
+        long handleTime = LogHelper.getHandleTime(headers);
+
+        Log logDTO = new Log(Log.TYPE.RESPONSE);
+        logDTO.setLevel(Log.LEVEL.INFO);
+        logDTO.setRequestUrl(url);
+        logDTO.setRequestBody(requestBody);
+        logDTO.setResponseBody(responseBody);
+        logDTO.setRequestMethod(method);
+        if (Objects.nonNull(httpStatus)) {
+            logDTO.setStatus(httpStatus.value());
+        }
+        logDTO.setHandleTime(handleTime);
+        logDTO.setRequestId(requestId);
+        logDTO.setIp(IpUtils.getClientIp(request));
+        return logDTO;
     }
 
 }

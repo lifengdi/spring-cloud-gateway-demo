@@ -14,10 +14,10 @@ public class Global {
     @Value("${spring.application.name}")
     public String applicationName;
 
-    @Value("${info.env}")
+    @Value("${info.env:dev}")
     public String env;
 
-    @Value("${authExcludeUrl}")
+    @Value("${authExcludeUrl:null}")
     public String authExcludeUrl;
 
     private List<String> excludeUrlList;

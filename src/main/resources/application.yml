@@ -60,3 +60,18 @@ hystrix:
         isolation:
           thread:
             timeoutInMilliseconds: 1000
+# 报文转换配置
+trans:
+  url-list:
+    - paths: /jar/api/cockpit
+      content-type: application/json
+      fields:
+        # 新字段:老字段，若新老字段一致，可以只配置新字段
+        - code:rs
+        - msg:rsdesp
+        - data:resultMessage
+    - paths: /war/api/delivertool
+      fields:
+        - code:rs
+        - msg:rsdesp
+        - data:resultMessage
