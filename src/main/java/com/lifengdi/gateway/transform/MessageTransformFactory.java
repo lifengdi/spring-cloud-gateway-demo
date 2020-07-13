@@ -79,7 +79,7 @@ public class MessageTransformFactory {
      *
      * @param path              接口路径
      * @param originalContent   原始内容
-     * @param originalByteArray 原始内容
+     * @param originalByteArray 二进制原始内容
      * @param charset           charset
      * @param newResponseBody   新报文内容
      * @return 响应体数组数组

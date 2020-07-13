@@ -2,7 +2,6 @@ package com.lifengdi.gateway.transform;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.lifengdi.gateway.response.ResponseResult;
 
 import javax.annotation.Resource;
 
